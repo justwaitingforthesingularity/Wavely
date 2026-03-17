@@ -183,3 +183,87 @@ input[type="range"]::-moz-range-thumb {
   height: 100% !important;
   border: none;
 }
+
+/* ===== Phone Frame (desktop) ===== */
+
+/* The dark ambient backdrop — only visible on wide screens */
+.phone-backdrop {
+  display: contents; /* Invisible wrapper on mobile */
+}
+
+.phone-frame {
+  /* On mobile / narrow: fills the whole viewport normally */
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* When the viewport is wider than phone size, constrain to 9:16 */
+@media (min-width: 500px) {
+  .phone-backdrop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    width: 100%;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .phone-frame {
+    width: min(420px, 56.25vh); /* 9:16 ratio = 56.25% of height */
+    height: 100vh;
+    max-height: 100vh;
+    position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--background);
+    box-shadow:
+      0 0 80px rgba(255, 255, 255, 0.04),
+      0 0 160px rgba(255, 255, 255, 0.02);
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    /* Creates a containing block so fixed children stay inside the frame */
+    transform: translateZ(0);
+  }
+
+  /* Ambient glow behind the phone */
+  .phone-backdrop::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(520px, 70vh);
+    height: 110vh;
+    border-radius: 50%;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(255, 255, 255, 0.03) 0%,
+      rgba(255, 255, 255, 0.015) 40%,
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+
+  /* Fixed elements inside the frame need to be scoped */
+  .phone-frame .dynamic-bg {
+    position: absolute;
+  }
+
+  .phone-frame .nav-height {
+    position: sticky;
+  }
+}
+
+/* When resized narrow enough, no frame at all */
+@media (max-width: 499px) {
+  .phone-backdrop {
+    display: contents;
+  }
+  .phone-frame {
+    width: 100%;
+    min-height: 100vh;
+  }
+}

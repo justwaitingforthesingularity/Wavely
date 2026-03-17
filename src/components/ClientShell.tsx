@@ -28,7 +28,12 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   return (
     <LibraryProvider>
       <EqualizerProvider>
-        <AppContent>{children}</AppContent>
+        {/* Phone frame: on wide screens, constrains to 9:16 with ambient glow */}
+        <div className="phone-backdrop">
+          <div className="phone-frame">
+            <AppContent>{children}</AppContent>
+          </div>
+        </div>
       </EqualizerProvider>
     </LibraryProvider>
   );

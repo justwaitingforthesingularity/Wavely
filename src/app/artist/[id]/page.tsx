@@ -412,54 +412,84 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
         {videoSongs.length > 0 && (
           <section className="px-5 mb-8">
             <h2 className="text-[18px] font-semibold mb-4">Music Videos</h2>
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-              {videoSongs.map((video) => (
-                <button
-                  key={video.id}
-                  onClick={() => playSong(video, videoSongs)}
-                  className="flex-shrink-0 w-[200px] group text-left"
-                >
-                  <div className="relative w-[200px] h-[112px] rounded-xl overflow-hidden bg-white/[0.06] mb-2.5">
-                    {video.thumbnail ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={video.thumbnail}
-                        alt={video.title}
-                        referrerPolicy="no-referrer"
-                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center bg-white/[0.04]">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-white/15">
-                          <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm14.024-.983a1.125 1.125 0 0 1 0 1.966l-5.603 3.113A1.125 1.125 0 0 1 9 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113Z" clipRule="evenodd" />
-                        </svg>
+            <div className="relative group/videos">
+              <div id="music-videos-scroll" className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide scroll-smooth">
+                {videoSongs.map((video) => (
+                  <button
+                    key={video.id}
+                    onClick={() => playSong(video, videoSongs)}
+                    className="flex-shrink-0 w-[200px] group text-left"
+                  >
+                    <div className="relative w-[200px] h-[112px] rounded-xl overflow-hidden bg-white/[0.06] mb-2.5">
+                      {video.thumbnail ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={video.thumbnail}
+                          alt={video.title}
+                          referrerPolicy="no-referrer"
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white/[0.04]">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-white/15">
+                            <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm14.024-.983a1.125 1.125 0 0 1 0 1.966l-5.603 3.113A1.125 1.125 0 0 1 9 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113Z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                      {/* Play icon overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-white ml-0.5">
+                            <path fillRule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clipRule="evenodd" />
+                          </svg>
+                        </div>
                       </div>
-                    )}
-                    {/* Play icon overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-white ml-0.5">
-                          <path fillRule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clipRule="evenodd" />
-                        </svg>
-                      </div>
+                      {/* Duration badge */}
+                      {video.duration > 0 && (
+                        <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/70 text-[10px] text-white/80 tabular-nums">
+                          {formatDuration(video.duration)}
+                        </div>
+                      )}
+                      <div className="absolute inset-0 rounded-xl ring-1 ring-white/[0.06]" />
                     </div>
-                    {/* Duration badge */}
-                    {video.duration > 0 && (
-                      <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/70 text-[10px] text-white/80 tabular-nums">
-                        {formatDuration(video.duration)}
-                      </div>
-                    )}
-                    <div className="absolute inset-0 rounded-xl ring-1 ring-white/[0.06]" />
-                  </div>
-                  <p className="text-[13px] font-medium text-white/90 truncate leading-tight">
-                    {video.title}
-                  </p>
-                  <p className="text-[11px] text-white/35 truncate mt-0.5">
-                    Music Video
-                  </p>
-                </button>
-              ))}
+                    <p className="text-[13px] font-medium text-white/90 truncate leading-tight">
+                      {video.title}
+                    </p>
+                    <p className="text-[11px] text-white/35 truncate mt-0.5">
+                      Music Video
+                    </p>
+                  </button>
+                ))}
+              </div>
+
+              {/* Navigation arrows */}
+              {videoSongs.length > 2 && (
+                <>
+                  <button
+                    onClick={() => {
+                      const el = document.getElementById("music-videos-scroll");
+                      if (el) el.scrollBy({ left: -220, behavior: "smooth" });
+                    }}
+                    className="absolute left-0 top-[44px] -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center transition-all z-10 active:scale-90 opacity-0 group-hover/videos:opacity-100"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4 text-white/80">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const el = document.getElementById("music-videos-scroll");
+                      if (el) el.scrollBy({ left: 220, behavior: "smooth" });
+                    }}
+                    className="absolute right-0 top-[44px] -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center transition-all z-10 active:scale-90 opacity-0 group-hover/videos:opacity-100"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4 text-white/80">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                    </svg>
+                  </button>
+                </>
+              )}
             </div>
           </section>
         )}
