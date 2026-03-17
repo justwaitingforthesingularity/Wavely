@@ -68,16 +68,20 @@ const GENRE_ARTISTS: Record<string, string[]> = {
   "Lo-Fi": ["Nujabes", "Jinsang", "Tomppabeats", "Idealism", "Kupla", "Philanthrope", "Mondo Loops", "Saib", "Swørn", "Aso"],
 };
 
-// Deezer search terms per genre for chart-quality results
-const DEEZER_GENRE_TERMS: Record<string, string> = {
-  "Pop": "pop",
-  "Hip-Hop": "hip hop",
-  "Rock": "rock",
-  "R&B": "r&b",
-  "Electronic": "electronic dance",
-  "Jazz": "jazz",
-  "Classical": "classical",
-  "Lo-Fi": "lo-fi",
+// Deezer genre IDs for their editorial charts endpoint
+const DEEZER_GENRE_IDS: Record<string, number> = {
+  "Pop": 132,
+  "Hip-Hop": 116,
+  "Rock": 152,
+  "R&B": 165,
+  "Electronic": 106,
+  "Jazz": 129,
+  "Classical": 98,
+};
+
+// Fallback search terms for genres without a Deezer genre ID (like Lo-Fi)
+const DEEZER_GENRE_SEARCH: Record<string, string> = {
+  "Lo-Fi": "lo-fi chill beats",
 };
 
 interface DeezerTrack {
@@ -88,13 +92,29 @@ interface DeezerTrack {
   album: { title: string; cover_big: string };
 }
 
-// Fetch real chart songs from Deezer (free public API, no auth needed)
+// Fetch genre-specific chart songs from Deezer editorial charts
 async function fetchDeezerChartSongs(genre: string): Promise<DeezerTrack[]> {
-  const searchTerm = DEEZER_GENRE_TERMS[genre] || genre.toLowerCase();
+  const genreId = DEEZER_GENRE_IDS[genre];
+
   try {
+    if (genreId) {
+      // Use editorial charts endpoint — returns actual genre-specific trending songs
+      const res = await fetch(
+        `https://api.deezer.com/editorial/${genreId}/charts`,
+        { next: { revalidate: 3600 } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const tracks = (data.tracks?.data || []) as DeezerTrack[];
+        if (tracks.length > 0) return tracks.slice(0, 20);
+      }
+    }
+
+    // Fallback: search-based approach for genres without Deezer IDs (Lo-Fi etc.)
+    const searchTerm = DEEZER_GENRE_SEARCH[genre] || genre.toLowerCase();
     const res = await fetch(
-      `https://api.deezer.com/search?q=genre:"${encodeURIComponent(searchTerm)}"&order=RANKING&limit=20`,
-      { next: { revalidate: 3600 } } // Cache for 1 hour
+      `https://api.deezer.com/search?q=${encodeURIComponent(searchTerm)}&order=RANKING&limit=20`,
+      { next: { revalidate: 3600 } }
     );
     if (!res.ok) return [];
     const data = await res.json();
