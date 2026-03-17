@@ -32,6 +32,7 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
   const [showAllSongs, setShowAllSongs] = useState(false);
   const [showAllAlbums, setShowAllAlbums] = useState(false);
   const [dominantColor, setDominantColor] = useState("80, 80, 120");
+  const [descExpanded, setDescExpanded] = useState(false);
 
   // Extract dominant color from artist thumbnail
   const extractColor = useCallback((thumbnail: string) => {
@@ -167,8 +168,18 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
                   background: `linear-gradient(180deg,
                     rgba(${dominantColor}, 0.15) 0%,
                     transparent 30%,
-                    rgba(10, 10, 12, 0.6) 70%,
+                    rgba(10, 10, 12, 0.6) 65%,
                     rgb(10, 10, 12) 100%)`,
+                }}
+              />
+              {/* Blur fade at the bottom of the image */}
+              <div
+                className="absolute inset-x-0 bottom-0 h-[120px]"
+                style={{
+                  backdropFilter: "blur(16px)",
+                  WebkitBackdropFilter: "blur(16px)",
+                  maskImage: "linear-gradient(to bottom, transparent, black)",
+                  WebkitMaskImage: "linear-gradient(to bottom, transparent, black)",
                 }}
               />
             </>
@@ -255,7 +266,10 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
         {/* Description */}
         {artist.description && (
           <div className="px-5 mb-6">
-            <p className="text-[13px] text-white/40 leading-relaxed line-clamp-3">
+            <p
+              onClick={() => setDescExpanded(!descExpanded)}
+              className={`text-[13px] text-white/40 leading-relaxed cursor-pointer transition-all duration-300 ${descExpanded ? "" : "line-clamp-3"}`}
+            >
               {artist.description}
             </p>
           </div>
