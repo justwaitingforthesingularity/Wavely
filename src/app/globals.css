@@ -212,7 +212,7 @@ input[type="range"]::-moz-range-thumb {
   }
 
   .phone-frame {
-    width: min(420px, 56.25vh); /* 9:16 ratio = 56.25% of height */
+    width: min(480px, 56.25vh); /* 9:16 ratio, wider max */
     height: 100vh;
     max-height: 100vh;
     position: relative;
@@ -220,30 +220,58 @@ input[type="range"]::-moz-range-thumb {
     overflow-x: hidden;
     background: var(--background);
     box-shadow:
-      0 0 80px rgba(255, 255, 255, 0.04),
-      0 0 160px rgba(255, 255, 255, 0.02);
-    border-left: 1px solid rgba(255, 255, 255, 0.06);
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
+      0 0 120px rgba(255, 255, 255, 0.07),
+      0 0 300px rgba(255, 255, 255, 0.04),
+      0 0 600px rgba(255, 255, 255, 0.02);
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
     /* Creates a containing block so fixed children stay inside the frame */
     transform: translateZ(0);
+    /* Hide scrollbar */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
 
-  /* Ambient glow behind the phone */
+  .phone-frame::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Ambient glow behind the phone — two layers for left/right edge glow */
   .phone-backdrop::before {
     content: "";
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: min(520px, 70vh);
-    height: 110vh;
-    border-radius: 50%;
+    width: min(700px, 90vh);
+    height: 120vh;
+    border-radius: 40%;
     background: radial-gradient(
       ellipse at center,
-      rgba(255, 255, 255, 0.03) 0%,
-      rgba(255, 255, 255, 0.015) 40%,
-      transparent 70%
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0.03) 35%,
+      rgba(255, 255, 255, 0.01) 55%,
+      transparent 75%
     );
+    pointer-events: none;
+  }
+
+  /* Extra side glow strips for more apparent edge lighting */
+  .phone-backdrop::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(540px, 62vh);
+    height: 100%;
+    background:
+      linear-gradient(to right,
+        rgba(255, 255, 255, 0.04) 0%,
+        transparent 15%,
+        transparent 85%,
+        rgba(255, 255, 255, 0.04) 100%
+      );
     pointer-events: none;
   }
 
