@@ -234,6 +234,8 @@ export default function PlayerView() {
     registerVideoControls,
     unregisterVideoControls,
     setIsPlaying,
+    setCurrentTime,
+    setDuration,
   } = useAudioPlayer();
   const router = useRouter();
   const { toggleLike, isLiked, playlists, addToPlaylist } = useLibrary();
@@ -271,20 +273,18 @@ export default function PlayerView() {
     setVideoOptions([]);
     setVideoIndex(0);
     if (isVideoOnly) {
-      // Video-only songs: use YouTube embed
       setViewMode("video");
       setMusicVideoId(currentSong?.musicVideoId || null);
-      pause();
     } else {
-      // Song mode: audio element handles playback
       setViewMode("song");
-      setMusicVideoId(null);
-      unregisterVideoControls();
+      // Use song's YouTube ID — a hidden YT player provides audio
+      setMusicVideoId(currentSong?.id || null);
     }
     setShowLyrics(false);
     setShowInlineLyrics(false);
     setVideoTime(0);
-  }, [currentSong?.id, isVideoOnly, currentSong?.musicVideoId, pause, unregisterVideoControls]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSong?.id, isVideoOnly, currentSong?.musicVideoId]);
 
   // For non-video-only songs that switch to video mode manually,
   // the audio was already paused by handleViewModeChange().
@@ -370,10 +370,11 @@ export default function PlayerView() {
   }, [viewMode, currentSong]);
 
   // Create YouTube player when musicVideoId is ready.
+  // Used for ALL songs — hidden in song mode, visible in video mode.
   // NOT dependent on isPlayerOpen — the player view stays in the DOM (just off-screen)
   // so the iframe persists and audio keeps playing when minimized.
   useEffect(() => {
-    if (viewMode !== "video" || !musicVideoId) return;
+    if (!musicVideoId) return;
 
     let destroyed = false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -390,6 +391,11 @@ export default function PlayerView() {
             const t = p.getCurrentTime();
             if (typeof t === "number" && !isNaN(t)) {
               setVideoTime(t);
+              setCurrentTime(t);
+            }
+            const d = p.getDuration();
+            if (typeof d === "number" && !isNaN(d) && d > 0) {
+              setDuration(d);
             }
           }
         } catch {
@@ -460,6 +466,20 @@ export default function PlayerView() {
                   return false;
                 }
               },
+              seekTo: (time: number) => {
+                try {
+                  ytPlayerRef.current?.seekTo(time, true);
+                } catch {
+                  // ignore
+                }
+              },
+              getDuration: () => {
+                try {
+                  return ytPlayerRef.current?.getDuration() || 0;
+                } catch {
+                  return 0;
+                }
+              },
             });
             try {
               player.playVideo();
@@ -481,6 +501,7 @@ export default function PlayerView() {
             } else if (event.data === 0) {
               setVideoPlaying(false);
               setIsPlaying(false);
+              nextTrack();
             }
           },
           onError: (event: { data: number }) => {
@@ -513,7 +534,8 @@ export default function PlayerView() {
       }
       ytPlayerRef.current = null;
     };
-  }, [viewMode, musicVideoId, registerVideoControls, unregisterVideoControls, setIsPlaying]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, musicVideoId, registerVideoControls, unregisterVideoControls, setIsPlaying, setCurrentTime, setDuration, nextTrack]);
 
   // Switch to a different video option
   const switchVideo = useCallback((newIndex: number) => {
@@ -530,11 +552,9 @@ export default function PlayerView() {
   const handleViewModeChange = (mode: ViewMode) => {
     if (mode === viewMode) return;
 
-    if (mode === "video") {
-      wasPausedBeforeVideo.current = !isPlaying;
-      pause();
-    } else {
-      destroyPlayer();
+    if (mode === "song" && currentSong) {
+      // Revert to song's YouTube ID for audio
+      setMusicVideoId(currentSong.id);
     }
 
     setViewMode(mode);
@@ -706,6 +726,16 @@ export default function PlayerView() {
             </div>
           </div>
         </div>
+
+        {/* Hidden YouTube player for audio in song mode */}
+        {viewMode === "song" && (
+          <div
+            ref={videoContainerRef}
+            className="fixed -top-[9999px] left-0 w-[320px] h-[180px] overflow-hidden pointer-events-none"
+            style={{ opacity: 0.01 }}
+            aria-hidden="true"
+          />
+        )}
 
         {/* ===== SONG MODE ===== */}
         {viewMode === "song" && (

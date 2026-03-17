@@ -23,6 +23,8 @@ interface AudioPlayerState {
 interface VideoControls {
   toggle: () => void;
   isPlaying: () => boolean;
+  seekTo?: (time: number) => void;
+  getDuration?: () => number;
 }
 
 interface AudioPlayerActions {
@@ -40,6 +42,8 @@ interface AudioPlayerActions {
   registerVideoControls: (controls: VideoControls) => void;
   unregisterVideoControls: () => void;
   setIsPlaying: (playing: boolean) => void;
+  setCurrentTime: (time: number) => void;
+  setDuration: (duration: number) => void;
 }
 
 const AudioPlayerContext = createContext<(AudioPlayerState & AudioPlayerActions) | null>(null);
@@ -189,14 +193,13 @@ export function AudioPlayerProvider({ children, onSongPlay, onAudioElement }: { 
     async (song: Song, queue?: Song[], index?: number) => {
       if (!audioRef.current) return;
 
-      // Detect video-only songs: when song.id === song.musicVideoId,
-      // the YouTube embed handles playback — skip loading audio.
-      const isVideoOnly = !!(song.musicVideoId && song.id === song.musicVideoId);
-      const skipAudio = isVideoOnly;
+      // ALL audio now plays via YouTube IFrame player (created in PlayerView).
+      // We just set state here — the YT player handles actual playback.
+      const skipAudio = true;
 
       setState((prev) => ({
         ...prev,
-        isLoading: !skipAudio,
+        isLoading: true,
         currentSong: song,
         queue: queue || prev.queue,
         queueIndex: index ?? prev.queueIndex,
@@ -221,30 +224,26 @@ export function AudioPlayerProvider({ children, onSongPlay, onAudioElement }: { 
             { src: thumbnail, sizes: "512x512", type: "image/jpeg" },
           ],
         });
-        navigator.mediaSession.setActionHandler("play", () => audioRef.current?.play());
-        navigator.mediaSession.setActionHandler("pause", () => audioRef.current?.pause());
+        navigator.mediaSession.setActionHandler("play", () => {
+          if (videoControlsRef.current) {
+            if (!videoControlsRef.current.isPlaying()) videoControlsRef.current.toggle();
+          } else {
+            audioRef.current?.play();
+          }
+        });
+        navigator.mediaSession.setActionHandler("pause", () => {
+          if (videoControlsRef.current) {
+            if (videoControlsRef.current.isPlaying()) videoControlsRef.current.toggle();
+          } else {
+            audioRef.current?.pause();
+          }
+        });
         navigator.mediaSession.setActionHandler("previoustrack", () => prevTrack());
         navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
       }
 
-      // For video-only songs on desktop, don't load audio — the YT embed handles it
-      if (skipAudio) {
-        setState((prev) => ({ ...prev, isLoading: false }));
-        return;
-      }
-
-      try {
-        // Use our audio proxy endpoint
-        const proxyUrl = `/api/audio?id=${encodeURIComponent(song.id)}`;
-        audioRef.current.src = proxyUrl;
-        // Call play() immediately to preserve the user gesture context on iOS.
-        // The browser will buffer and start playing when data arrives.
-        // The existing "error" event listener on the audio element handles failures.
-        await audioRef.current.play();
-      } catch (error) {
-        console.error("Failed to play:", error);
-        setState((prev) => ({ ...prev, isLoading: false }));
-      }
+      // Audio is handled by YouTube IFrame player in PlayerView
+      // Don't load anything into the HTML audio element
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [extractColor]
@@ -278,6 +277,11 @@ export function AudioPlayerProvider({ children, onSongPlay, onAudioElement }: { 
   }, []);
 
   const seek = useCallback((time: number) => {
+    if (videoControlsRef.current?.seekTo) {
+      videoControlsRef.current.seekTo(time);
+      setState((prev) => ({ ...prev, currentTime: time }));
+      return;
+    }
     if (!audioRef.current) return;
     audioRef.current.currentTime = time;
   }, []);
@@ -315,6 +319,12 @@ export function AudioPlayerProvider({ children, onSongPlay, onAudioElement }: { 
   }, [loadAndPlay]);
 
   const prevTrack = useCallback(() => {
+    // If more than 3 seconds in, restart current song
+    if (videoControlsRef.current?.seekTo && state.currentTime > 3) {
+      videoControlsRef.current.seekTo(0);
+      setState((prev) => ({ ...prev, currentTime: 0 }));
+      return;
+    }
     if (audioRef.current && audioRef.current.currentTime > 3) {
       audioRef.current.currentTime = 0;
       return;
@@ -358,7 +368,15 @@ export function AudioPlayerProvider({ children, onSongPlay, onAudioElement }: { 
   }, []);
 
   const setIsPlaying = useCallback((playing: boolean) => {
-    setState((prev) => ({ ...prev, isPlaying: playing }));
+    setState((prev) => ({ ...prev, isPlaying: playing, isLoading: playing ? false : prev.isLoading }));
+  }, []);
+
+  const setCurrentTime = useCallback((time: number) => {
+    setState((prev) => ({ ...prev, currentTime: time }));
+  }, []);
+
+  const setDuration = useCallback((duration: number) => {
+    setState((prev) => ({ ...prev, duration }));
   }, []);
 
   return (
@@ -379,6 +397,8 @@ export function AudioPlayerProvider({ children, onSongPlay, onAudioElement }: { 
         registerVideoControls,
         unregisterVideoControls,
         setIsPlaying,
+        setCurrentTime,
+        setDuration,
       }}
     >
       {children}
