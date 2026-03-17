@@ -593,12 +593,24 @@ export default function PlayerView() {
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div
-      className={`fixed inset-0 z-[100] transition-transform duration-300 ease-out ${
-        isPlayerOpen ? "translate-y-0" : "translate-y-full"
-      }`}
-      style={{ touchAction: isPlayerOpen ? "none" : undefined, pointerEvents: isPlayerOpen ? "auto" : "none" }}
-    >
+    <div className="fixed inset-0 z-[100]" style={{ pointerEvents: "none" }}>
+      {/* Hidden YouTube player for audio in song mode — OUTSIDE the transform so it always initializes */}
+      {viewMode === "song" && (
+        <div
+          ref={videoContainerRef}
+          className="fixed -top-[9999px] left-0 w-[320px] h-[180px] overflow-hidden pointer-events-none"
+          style={{ opacity: 0.01 }}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sliding panel */}
+      <div
+        className={`absolute inset-0 transition-transform duration-300 ease-out ${
+          isPlayerOpen ? "translate-y-0" : "translate-y-full"
+        }`}
+        style={{ touchAction: isPlayerOpen ? "none" : undefined, pointerEvents: isPlayerOpen ? "auto" : "none" }}
+      >
       {/* Dynamic gradient background */}
       <div
         className="absolute inset-0 transition-colors duration-[2s]"
@@ -726,16 +738,6 @@ export default function PlayerView() {
             </div>
           </div>
         </div>
-
-        {/* Hidden YouTube player for audio in song mode */}
-        {viewMode === "song" && (
-          <div
-            ref={videoContainerRef}
-            className="fixed -top-[9999px] left-0 w-[320px] h-[180px] overflow-hidden pointer-events-none"
-            style={{ opacity: 0.01 }}
-            aria-hidden="true"
-          />
-        )}
 
         {/* ===== SONG MODE ===== */}
         {viewMode === "song" && (
@@ -1074,6 +1076,7 @@ export default function PlayerView() {
           overrideTime={undefined}
         />
       )}
+      </div>{/* end sliding panel */}
     </div>
   );
 }
