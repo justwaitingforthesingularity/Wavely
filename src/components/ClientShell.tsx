@@ -13,10 +13,14 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
   return (
     <AudioPlayerProvider onSongPlay={addToHistory} onAudioElement={connectAudio}>
-      <div className="dynamic-bg" />
-      <main className="relative z-10 min-h-screen pb-40">
-        {children}
-      </main>
+      {/* Scrollable content area — only this part scrolls */}
+      <div className="phone-scroll">
+        <div className="dynamic-bg" />
+        <main className="relative z-10 min-h-screen pb-40">
+          {children}
+        </main>
+      </div>
+      {/* Overlays — stay fixed on top, never scroll */}
       <MiniPlayer />
       <BottomNav />
       <PlayerView />

@@ -216,8 +216,7 @@ input[type="range"]::-moz-range-thumb {
     height: 100vh;
     max-height: 100vh;
     position: relative;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     background: var(--background);
     box-shadow:
       0 0 80px rgba(255, 255, 255, 0.05),
@@ -226,12 +225,18 @@ input[type="range"]::-moz-range-thumb {
     border-right: 1px solid rgba(255, 255, 255, 0.06);
     /* Creates a containing block so fixed children stay inside the frame */
     transform: translateZ(0);
-    /* Hide scrollbar */
+  }
+
+  /* Inner scroll container — only page content scrolls, overlays stay fixed */
+  .phone-frame .phone-scroll {
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
 
-  .phone-frame::-webkit-scrollbar {
+  .phone-frame .phone-scroll::-webkit-scrollbar {
     display: none;
   }
 
