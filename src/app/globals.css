@@ -247,10 +247,10 @@ input[type="range"]::-moz-range-thumb {
     border-radius: 50%;
     background: radial-gradient(
       circle at center,
-      rgba(255, 255, 255, 0.10) 0%,
-      rgba(255, 255, 255, 0.06) 15%,
-      rgba(255, 255, 255, 0.03) 30%,
-      rgba(255, 255, 255, 0.01) 50%,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.12) 12%,
+      rgba(255, 255, 255, 0.06) 28%,
+      rgba(255, 255, 255, 0.02) 50%,
       transparent 70%
     );
     pointer-events: none;
