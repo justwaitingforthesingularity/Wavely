@@ -220,8 +220,15 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
 
       {/* Rest of content */}
       <div className="relative z-10">
-        {/* Action buttons */}
-        <div className="px-5 flex items-center gap-3 mt-4 mb-6">
+        {/* Action buttons — glass strip that blurs into the hero above */}
+        <div
+          className="px-5 flex items-center gap-3 py-4 mb-2 -mt-2"
+          style={{
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            background: `linear-gradient(to bottom, rgba(10,10,12,0.3) 0%, rgba(10,10,12,0.85) 100%)`,
+          }}
+        >
           <button
             onClick={() => toggleFollow({
               id: artist.id,

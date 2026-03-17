@@ -908,7 +908,7 @@ export default function PlayerView() {
           <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
             {/* Video embed with prev/next navigation — shrinks when lyrics are open */}
             <div className={`relative w-full rounded-2xl overflow-hidden shadow-2xl bg-black transition-all duration-300 ${
-              showInlineLyrics ? "h-[30vh] flex-shrink-0" : "aspect-video flex-shrink-0"
+              showInlineLyrics ? "h-[30vh] flex-shrink-0" : "h-[56vw] max-h-[320px] flex-shrink-0"
             }`}>
               {/* Video container — ALWAYS in the DOM so the ref is available for YT.Player */}
               <div ref={videoContainerRef} className="w-full h-full" />
