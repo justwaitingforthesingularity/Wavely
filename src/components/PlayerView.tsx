@@ -58,38 +58,65 @@ interface VideoOption {
 
 // Offset slider component
 function OffsetSlider({ offset, setOffset }: { offset: number; setOffset: (v: number | ((o: number) => number)) => void }) {
+  const clamp = (v: number) => Math.round(Math.min(10, Math.max(-10, v)) * 10) / 10;
   return (
-    <div className="flex items-center gap-2 px-2">
-      <span className="text-[10px] text-white/30 font-medium flex-shrink-0">-5s</span>
-      <div className="flex-1 relative h-6 flex items-center">
-        <div className="w-full h-1 bg-white/[0.08] rounded-full overflow-hidden">
-          <div
-            className="h-full bg-white/30 rounded-full transition-[width] duration-100"
-            style={{ width: `${((offset + 5) / 10) * 100}%` }}
+    <div className="flex flex-col gap-1.5 px-2">
+      {/* Top row: − button, slider, + button */}
+      <div className="flex items-center gap-2">
+        {/* − button */}
+        <button
+          onClick={() => setOffset((o) => clamp(o - 0.5))}
+          className="w-7 h-7 flex items-center justify-center rounded-full bg-white/[0.07] hover:bg-white/[0.13] active:scale-90 transition-all text-white/60 text-base font-bold flex-shrink-0"
+        >
+          −
+        </button>
+
+        {/* Slider track */}
+        <div className="flex-1 relative h-6 flex items-center">
+          <div className="w-full h-1 bg-white/[0.08] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-white/30 rounded-full transition-[width] duration-100"
+              style={{ width: `${((offset + 10) / 20) * 100}%` }}
+            />
+          </div>
+          <input
+            type="range"
+            min={-10}
+            max={10}
+            step={0.1}
+            value={offset}
+            onChange={(e) => setOffset(clamp(Number(e.target.value)))}
+            className="absolute w-full opacity-0 h-6 cursor-pointer"
           />
         </div>
-        <input
-          type="range"
-          min={-5}
-          max={5}
-          step={0.1}
-          value={offset}
-          onChange={(e) => setOffset(Math.round(Number(e.target.value) * 10) / 10)}
-          className="absolute w-full opacity-0 h-6 cursor-pointer"
-        />
-      </div>
-      <span className="text-[10px] text-white/30 font-medium flex-shrink-0">+5s</span>
-      <span className="text-[10px] text-white/40 tabular-nums min-w-[38px] text-center font-medium flex-shrink-0">
-        {offset === 0 ? "sync" : `${offset > 0 ? "+" : ""}${offset.toFixed(1)}s`}
-      </span>
-      {offset !== 0 && (
+
+        {/* + button */}
         <button
-          onClick={() => setOffset(0)}
-          className="text-[10px] text-white/30 hover:text-white/50 transition-colors flex-shrink-0"
+          onClick={() => setOffset((o) => clamp(o + 0.5))}
+          className="w-7 h-7 flex items-center justify-center rounded-full bg-white/[0.07] hover:bg-white/[0.13] active:scale-90 transition-all text-white/60 text-base font-bold flex-shrink-0"
         >
-          reset
+          +
         </button>
-      )}
+      </div>
+
+      {/* Bottom row: range labels + current value + reset */}
+      <div className="flex items-center justify-between px-0.5">
+        <span className="text-[10px] text-white/25 font-medium">−10s</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-white/40 tabular-nums font-medium">
+            {offset === 0 ? "in sync" : `${offset > 0 ? "+" : ""}${offset.toFixed(1)}s`}
+          </span>
+          {offset !== 0 && (
+            <button
+              onClick={() => setOffset(0)}
+              className="text-[10px] text-white/30 hover:text-white/50 transition-colors"
+            >
+              reset
+            </button>
+          )}
+        </div>
+        <span className="text-[10px] text-white/25 font-medium">+10s</span>
+      </div>
     </div>
   );
 }
