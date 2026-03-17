@@ -65,16 +65,16 @@ export default function Search() {
   const [hasSearched, setHasSearched] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Genre browse data
+  // Genre browse data — each has a representative artist for the thumbnail
   const genres = [
-    { name: "Pop", slug: "pop", gradient: "from-pink-500 to-rose-600" },
-    { name: "Hip-Hop", slug: "hip-hop", gradient: "from-orange-500 to-amber-600" },
-    { name: "Rock", slug: "rock", gradient: "from-red-600 to-red-800" },
-    { name: "R&B", slug: "r-and-b", gradient: "from-purple-500 to-violet-700" },
-    { name: "Electronic", slug: "electronic", gradient: "from-blue-500 to-cyan-600" },
-    { name: "Jazz", slug: "jazz", gradient: "from-amber-600 to-yellow-800" },
-    { name: "Classical", slug: "classical", gradient: "from-teal-500 to-emerald-700" },
-    { name: "Lo-Fi", slug: "lo-fi", gradient: "from-indigo-500 to-purple-700" },
+    { name: "Pop", slug: "pop", gradient: "from-pink-500 to-rose-600", artist: "Taylor Swift" },
+    { name: "Hip-Hop", slug: "hip-hop", gradient: "from-orange-500 to-amber-600", artist: "Drake" },
+    { name: "Rock", slug: "rock", gradient: "from-red-600 to-red-800", artist: "Foo Fighters" },
+    { name: "R&B", slug: "r-and-b", gradient: "from-purple-500 to-violet-700", artist: "The Weeknd" },
+    { name: "Electronic", slug: "electronic", gradient: "from-blue-500 to-cyan-600", artist: "Calvin Harris" },
+    { name: "Jazz", slug: "jazz", gradient: "from-amber-600 to-yellow-800", artist: "Norah Jones" },
+    { name: "Classical", slug: "classical", gradient: "from-teal-500 to-emerald-700", artist: "Ludovico Einaudi" },
+    { name: "Lo-Fi", slug: "lo-fi", gradient: "from-indigo-500 to-purple-700", artist: "Nujabes" },
   ];
   const [genreThumbnails, setGenreThumbnails] = useState<Record<string, string>>({});
 
@@ -82,16 +82,17 @@ export default function Search() {
     let cancelled = false;
     async function fetchGenreThumbnails() {
       const thumbnails: Record<string, string> = {};
+      // Search for specific representative artists — fast & accurate
       await Promise.all(
         genres.map(async (genre) => {
           try {
-            const data = await searchSongs(`${genre.name} artist`);
-            const firstArtist = (data.artists || [])[0];
-            if (firstArtist?.thumbnail) {
-              thumbnails[genre.slug] = firstArtist.thumbnail;
+            const data = await searchSongs(genre.artist);
+            const match = (data.artists || [])[0];
+            if (match?.thumbnail) {
+              thumbnails[genre.slug] = match.thumbnail;
             }
           } catch {
-            // ignore failures for individual genres
+            // ignore failures
           }
         })
       );

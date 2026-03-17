@@ -75,11 +75,10 @@ export async function GET(request: NextRequest) {
   try {
     const yt = await getInnerTube();
 
-    // Run 3 searches in parallel
-    const [playlistResults, artistResults, trendingResults] = await Promise.all([
+    // Run 2 searches in parallel (artists are extracted from song results)
+    const [playlistResults, trendingResults] = await Promise.all([
       yt.music.search(`${genre} music playlist`, { type: "playlist" }).catch(() => null),
-      yt.music.search(`${genre} artists`, { type: "artist" }).catch(() => null),
-      yt.music.search(`${genre} new music 2026`, { type: "song" }).catch(() => null),
+      yt.music.search(`top ${genre} hits`, { type: "song" }).catch(() => null),
     ]);
 
     // Parse playlists and split into official vs community
@@ -105,20 +104,6 @@ export async function GET(request: NextRequest) {
     const official = allPlaylists.filter((p) => isOfficialPlaylist(p.author));
     const community = allPlaylists.filter((p) => !isOfficialPlaylist(p.author));
 
-    // Parse artists
-    const artItems =
-      (artistResults?.contents?.[0] as { contents?: unknown[] } | undefined)?.contents || [];
-    const artists = artItems.slice(0, 10).map((item: unknown) => {
-      const artist = item as Record<string, unknown>;
-      const bestThumb = extractThumb(artist.thumbnail);
-      return {
-        id: toText(artist.id),
-        name: toText(artist.name) || "Unknown Artist",
-        thumbnail: bestThumb,
-        subscribers: toText(artist.subscribers),
-      };
-    });
-
     // Parse trending songs
     const trendItems =
       (trendingResults?.contents?.[0] as { contents?: unknown[] } | undefined)?.contents || [];
@@ -126,7 +111,7 @@ export async function GET(request: NextRequest) {
       const song = item as {
         id?: string;
         title?: string;
-        artists?: { name?: unknown; channel_id?: string }[];
+        artists?: { name?: unknown; channel_id?: string; thumbnails?: { url?: string }[] }[];
         album?: { name?: unknown };
         thumbnail?: { contents?: { url?: string }[] };
         duration?: { seconds?: number; text?: unknown };
@@ -149,9 +134,48 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Extract unique artists from trending songs (real genre artists, not channels named after genres)
+    const seenArtistIds = new Set<string>();
+    const artistsFromSongs: { id: string; name: string }[] = [];
+    for (const song of trending) {
+      for (const ref of song.artistIds) {
+        if (ref.id && ref.name && !seenArtistIds.has(ref.id)) {
+          seenArtistIds.add(ref.id);
+          artistsFromSongs.push({ id: ref.id, name: ref.name });
+        }
+      }
+    }
+
+    // Fetch artist thumbnails in parallel (up to 10 artists)
+    const artistsToFetch = artistsFromSongs.slice(0, 10);
+    const artists = await Promise.all(
+      artistsToFetch.map(async (a) => {
+        try {
+          const result = await yt.music.search(a.name, { type: "artist" });
+          const items = (result?.contents?.[0] as { contents?: unknown[] } | undefined)?.contents || [];
+          // Find the exact match by channel ID or first result
+          for (const item of items) {
+            const artist = item as Record<string, unknown>;
+            const id = toText(artist.id);
+            if (id === a.id || items.indexOf(item) === 0) {
+              return {
+                id: a.id,
+                name: a.name,
+                thumbnail: extractThumb(artist.thumbnail),
+                subscribers: toText(artist.subscribers),
+              };
+            }
+          }
+          return { id: a.id, name: a.name, thumbnail: "", subscribers: "" };
+        } catch {
+          return { id: a.id, name: a.name, thumbnail: "", subscribers: "" };
+        }
+      })
+    );
+
     return NextResponse.json({
       playlists: { official, community },
-      artists,
+      artists: artists.filter((a) => a.thumbnail),
       trending,
     });
   } catch (error) {
