@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useLibrary } from "@/hooks/useLibrary";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import SongCard from "@/components/SongCard";
+import { getHQThumbnail } from "@/utils/thumbnail";
 
 export default function LocalPlaylistPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -93,7 +94,7 @@ export default function LocalPlaylistPage({ params }: { params: Promise<{ id: st
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       key={i}
-                      src={s.thumbnail}
+                      src={getHQThumbnail(s.thumbnail)}
                       alt=""
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover"
@@ -104,7 +105,7 @@ export default function LocalPlaylistPage({ params }: { params: Promise<{ id: st
               ) : coverSongs.length > 0 ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
-                  src={coverSongs[0].thumbnail}
+                  src={getHQThumbnail(coverSongs[0].thumbnail)}
                   alt={playlist.name}
                   referrerPolicy="no-referrer"
                   className="absolute inset-0 w-full h-full object-cover"
