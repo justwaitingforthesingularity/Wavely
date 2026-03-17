@@ -47,15 +47,8 @@ function extractThumb(thumbData: unknown): string {
 }
 
 const OFFICIAL_AUTHORS = [
-  "youtube music",
-  "youtube",
-  "google",
-  "spotify",
-  "apple music",
-  "vevo",
-  "tidal",
-  "deezer",
-  "amazon music",
+  "youtube music", "youtube", "google", "spotify",
+  "apple music", "vevo", "tidal", "deezer", "amazon music",
 ];
 
 function isOfficialPlaylist(author: string): boolean {
@@ -63,7 +56,7 @@ function isOfficialPlaylist(author: string): boolean {
   return OFFICIAL_AUTHORS.some((o) => lower.includes(o));
 }
 
-// Curated real verified artists per genre — these are the biggest names
+// Curated real verified artists per genre
 const GENRE_ARTISTS: Record<string, string[]> = {
   "Pop": ["Taylor Swift", "Ariana Grande", "Billie Eilish", "Dua Lipa", "Ed Sheeran", "Olivia Rodrigo", "Harry Styles", "Doja Cat", "Sabrina Carpenter", "Bruno Mars"],
   "Hip-Hop": ["Drake", "Kendrick Lamar", "Travis Scott", "J. Cole", "21 Savage", "Future", "Metro Boomin", "Lil Baby", "Kanye West", "Tyler The Creator"],
@@ -74,6 +67,42 @@ const GENRE_ARTISTS: Record<string, string[]> = {
   "Classical": ["Ludovico Einaudi", "Yo-Yo Ma", "Lang Lang", "Max Richter", "Hans Zimmer", "Yiruma", "André Rieu", "Ólafur Arnalds", "Chopin", "Debussy"],
   "Lo-Fi": ["Nujabes", "Jinsang", "Tomppabeats", "Idealism", "Kupla", "Philanthrope", "Mondo Loops", "Saib", "Swørn", "Aso"],
 };
+
+// Deezer search terms per genre for chart-quality results
+const DEEZER_GENRE_TERMS: Record<string, string> = {
+  "Pop": "pop",
+  "Hip-Hop": "hip hop",
+  "Rock": "rock",
+  "R&B": "r&b",
+  "Electronic": "electronic dance",
+  "Jazz": "jazz",
+  "Classical": "classical",
+  "Lo-Fi": "lo-fi",
+};
+
+interface DeezerTrack {
+  id: number;
+  title: string;
+  duration: number;
+  artist: { name: string };
+  album: { title: string; cover_big: string };
+}
+
+// Fetch real chart songs from Deezer (free public API, no auth needed)
+async function fetchDeezerChartSongs(genre: string): Promise<DeezerTrack[]> {
+  const searchTerm = DEEZER_GENRE_TERMS[genre] || genre.toLowerCase();
+  try {
+    const res = await fetch(
+      `https://api.deezer.com/search?q=genre:"${encodeURIComponent(searchTerm)}"&order=RANKING&limit=20`,
+      { next: { revalidate: 3600 } } // Cache for 1 hour
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.data || []) as DeezerTrack[];
+  } catch {
+    return [];
+  }
+}
 
 export async function GET(request: NextRequest) {
   const genre = request.nextUrl.searchParams.get("genre");
@@ -87,14 +116,33 @@ export async function GET(request: NextRequest) {
 
   try {
     const yt = await getInnerTube();
-
-    // Get curated artist names for this genre
     const curatedArtists = GENRE_ARTISTS[genre] || [];
 
-    // Run playlist search + trending songs search in parallel
-    const [playlistResults, trendingResults] = await Promise.all([
+    // Run all data fetches in parallel:
+    // 1. Playlist search (YouTube Music)
+    // 2. Chart songs from Deezer (real verified songs)
+    // 3. Artist thumbnail lookups (curated list)
+    const [playlistResults, deezerTracks, ...artistResults] = await Promise.all([
       yt.music.search(`${genre} music playlist`, { type: "playlist" }).catch(() => null),
-      yt.music.search(`${genre} hits 2025 2026`, { type: "song" }).catch(() => null),
+      fetchDeezerChartSongs(genre),
+      ...curatedArtists.map(async (name) => {
+        try {
+          const result = await yt.music.search(name, { type: "artist" });
+          const items = (result?.contents?.[0] as { contents?: unknown[] } | undefined)?.contents || [];
+          if (items.length > 0) {
+            const artist = items[0] as Record<string, unknown>;
+            return {
+              id: toText(artist.id),
+              name,
+              thumbnail: extractThumb(artist.thumbnail),
+              subscribers: toText(artist.subscribers),
+            };
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      }),
     ]);
 
     // Parse playlists and split into official vs community
@@ -120,49 +168,30 @@ export async function GET(request: NextRequest) {
     const official = allPlaylists.filter((p) => isOfficialPlaylist(p.author));
     const community = allPlaylists.filter((p) => !isOfficialPlaylist(p.author));
 
-    // Parse trending songs
-    const trendItems =
-      (trendingResults?.contents?.[0] as { contents?: unknown[] } | undefined)?.contents || [];
-    const trending = trendItems.slice(0, 20).map((item: unknown) => {
-      const song = item as {
-        id?: string;
-        title?: string;
-        artists?: { name?: unknown; channel_id?: string }[];
-        album?: { name?: unknown };
-        thumbnail?: { contents?: { url?: string }[] };
-        duration?: { seconds?: number; text?: unknown };
-      };
-      const thumbnails = song.thumbnail?.contents || [];
-      const bestThumb = getHQThumbnail(thumbnails[thumbnails.length - 1]?.url || "");
-      const artistIds = (song.artists || [])
-        .filter((a) => a.channel_id)
-        .map((a) => ({ id: a.channel_id!, name: toText(a.name) }));
-
-      return {
-        id: song.id || "",
-        title: toText(song.title) || "Unknown",
-        artist: song.artists?.map((a) => toText(a.name)).join(", ") || "Unknown Artist",
-        artistIds,
-        album: toText(song.album?.name),
-        thumbnail: bestThumb,
-        duration: song.duration?.seconds || 0,
-        durationText: toText(song.duration?.text),
-      };
-    });
-
-    // Fetch curated artist thumbnails in parallel (real verified artists only)
-    const artists = (await Promise.all(
-      curatedArtists.map(async (name) => {
+    // For each Deezer chart song, find the YouTube Music ID for playback
+    const trending = (await Promise.all(
+      deezerTracks.map(async (track) => {
         try {
-          const result = await yt.music.search(name, { type: "artist" });
+          const query = `${track.title} ${track.artist.name}`;
+          const result = await yt.music.search(query, { type: "song" });
           const items = (result?.contents?.[0] as { contents?: unknown[] } | undefined)?.contents || [];
           if (items.length > 0) {
-            const artist = items[0] as Record<string, unknown>;
+            const song = items[0] as {
+              id?: string;
+              title?: string;
+              artists?: { name?: unknown; channel_id?: string }[];
+              album?: { name?: unknown };
+              thumbnail?: { contents?: { url?: string }[] };
+              duration?: { seconds?: number; text?: unknown };
+            };
+            const thumbnails = song.thumbnail?.contents || [];
+            const bestThumb = getHQThumbnail(thumbnails[thumbnails.length - 1]?.url || "");
             return {
-              id: toText(artist.id),
-              name,
-              thumbnail: extractThumb(artist.thumbnail),
-              subscribers: toText(artist.subscribers),
+              id: song.id || "",
+              title: track.title, // Use Deezer's clean title
+              artist: track.artist.name, // Use Deezer's clean artist name
+              thumbnail: bestThumb || getHQThumbnail(track.album.cover_big),
+              duration: track.duration || 0,
             };
           }
           return null;
@@ -170,7 +199,11 @@ export async function GET(request: NextRequest) {
           return null;
         }
       })
-    )).filter((a): a is NonNullable<typeof a> => a !== null && !!a.thumbnail);
+    )).filter((s): s is NonNullable<typeof s> => s !== null && !!s.id);
+
+    // Filter valid artists
+    const artists = artistResults
+      .filter((a): a is NonNullable<typeof a> => a !== null && !!a.thumbnail);
 
     return NextResponse.json({
       playlists: { official, community },

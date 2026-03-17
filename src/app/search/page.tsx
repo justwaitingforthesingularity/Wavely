@@ -76,29 +76,25 @@ export default function Search() {
     { name: "Classical", slug: "classical", gradient: "from-teal-500 to-emerald-700", artist: "Ludovico Einaudi" },
     { name: "Lo-Fi", slug: "lo-fi", gradient: "from-indigo-500 to-purple-700", artist: "Nujabes" },
   ];
-  const [genreThumbnails, setGenreThumbnails] = useState<Record<string, string>>(() => {
-    // Load cached thumbnails instantly from localStorage
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("genre-thumbnails");
-        if (cached) {
-          const { data, ts } = JSON.parse(cached);
-          // Cache valid for 24 hours
-          if (Date.now() - ts < 24 * 60 * 60 * 1000) return data;
-        }
-      } catch { /* ignore */ }
-    }
-    return {};
-  });
+  const [genreThumbnails, setGenreThumbnails] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    // Skip fetch if we already have cached thumbnails for all genres
-    if (Object.keys(genreThumbnails).length >= genres.length) return;
+    // 1. Try loading from localStorage cache first (client-side only)
+    try {
+      const cached = localStorage.getItem("genre-thumbnails");
+      if (cached) {
+        const { data, ts } = JSON.parse(cached);
+        if (Date.now() - ts < 24 * 60 * 60 * 1000 && Object.keys(data).length >= genres.length) {
+          setGenreThumbnails(data);
+          return; // Cache is fresh and complete, skip fetch
+        }
+      }
+    } catch { /* ignore */ }
 
+    // 2. No valid cache — fetch thumbnails
     let cancelled = false;
     async function fetchGenreThumbnails() {
       const thumbnails: Record<string, string> = {};
-      // Search for specific representative artists — fast & accurate
       await Promise.all(
         genres.map(async (genre) => {
           try {
@@ -114,10 +110,9 @@ export default function Search() {
       );
       if (!cancelled) {
         setGenreThumbnails(thumbnails);
-        // Cache in localStorage for instant loads
         try {
           localStorage.setItem("genre-thumbnails", JSON.stringify({ data: thumbnails, ts: Date.now() }));
-        } catch { /* quota exceeded, ignore */ }
+        } catch { /* quota exceeded */ }
       }
     }
     fetchGenreThumbnails();
