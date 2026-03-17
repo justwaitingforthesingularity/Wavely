@@ -76,9 +76,25 @@ export default function Search() {
     { name: "Classical", slug: "classical", gradient: "from-teal-500 to-emerald-700", artist: "Ludovico Einaudi" },
     { name: "Lo-Fi", slug: "lo-fi", gradient: "from-indigo-500 to-purple-700", artist: "Nujabes" },
   ];
-  const [genreThumbnails, setGenreThumbnails] = useState<Record<string, string>>({});
+  const [genreThumbnails, setGenreThumbnails] = useState<Record<string, string>>(() => {
+    // Load cached thumbnails instantly from localStorage
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("genre-thumbnails");
+        if (cached) {
+          const { data, ts } = JSON.parse(cached);
+          // Cache valid for 24 hours
+          if (Date.now() - ts < 24 * 60 * 60 * 1000) return data;
+        }
+      } catch { /* ignore */ }
+    }
+    return {};
+  });
 
   useEffect(() => {
+    // Skip fetch if we already have cached thumbnails for all genres
+    if (Object.keys(genreThumbnails).length >= genres.length) return;
+
     let cancelled = false;
     async function fetchGenreThumbnails() {
       const thumbnails: Record<string, string> = {};
@@ -96,7 +112,13 @@ export default function Search() {
           }
         })
       );
-      if (!cancelled) setGenreThumbnails(thumbnails);
+      if (!cancelled) {
+        setGenreThumbnails(thumbnails);
+        // Cache in localStorage for instant loads
+        try {
+          localStorage.setItem("genre-thumbnails", JSON.stringify({ data: thumbnails, ts: Date.now() }));
+        } catch { /* quota exceeded, ignore */ }
+      }
     }
     fetchGenreThumbnails();
     return () => { cancelled = true; };

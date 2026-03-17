@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Innertube } from "youtubei.js";
+import { getHQThumbnail } from "@/utils/thumbnail";
 
 let innertube: Innertube | null = null;
 
@@ -31,17 +32,17 @@ function toText(value: unknown): string {
 
 function extractThumb(thumbData: unknown): string {
   if (!thumbData) return "";
-  if (typeof thumbData === "string") return thumbData;
+  if (typeof thumbData === "string") return getHQThumbnail(thumbData);
   const obj = thumbData as Record<string, unknown>;
   if (Array.isArray(obj.contents)) {
     const items = obj.contents as { url?: string }[];
-    return items[items.length - 1]?.url || "";
+    return getHQThumbnail(items[items.length - 1]?.url || "");
   }
   if (Array.isArray(thumbData)) {
     const items = thumbData as { url?: string }[];
-    return items[items.length - 1]?.url || "";
+    return getHQThumbnail(items[items.length - 1]?.url || "");
   }
-  if (typeof obj.url === "string") return obj.url;
+  if (typeof obj.url === "string") return getHQThumbnail(obj.url);
   return "";
 }
 
@@ -62,6 +63,18 @@ function isOfficialPlaylist(author: string): boolean {
   return OFFICIAL_AUTHORS.some((o) => lower.includes(o));
 }
 
+// Curated real verified artists per genre — these are the biggest names
+const GENRE_ARTISTS: Record<string, string[]> = {
+  "Pop": ["Taylor Swift", "Ariana Grande", "Billie Eilish", "Dua Lipa", "Ed Sheeran", "Olivia Rodrigo", "Harry Styles", "Doja Cat", "Sabrina Carpenter", "Bruno Mars"],
+  "Hip-Hop": ["Drake", "Kendrick Lamar", "Travis Scott", "J. Cole", "21 Savage", "Future", "Metro Boomin", "Lil Baby", "Kanye West", "Tyler The Creator"],
+  "Rock": ["Foo Fighters", "Imagine Dragons", "Arctic Monkeys", "Linkin Park", "Green Day", "Red Hot Chili Peppers", "Muse", "The Killers", "Nirvana", "Radiohead"],
+  "R&B": ["The Weeknd", "SZA", "Daniel Caesar", "Frank Ocean", "Summer Walker", "Brent Faiyaz", "Usher", "Bryson Tiller", "H.E.R.", "Chris Brown"],
+  "Electronic": ["Calvin Harris", "Marshmello", "Martin Garrix", "Kygo", "Skrillex", "Deadmau5", "Zedd", "David Guetta", "Avicii", "Tiësto"],
+  "Jazz": ["Norah Jones", "Robert Glasper", "Kamasi Washington", "Gregory Porter", "Diana Krall", "Miles Davis", "John Coltrane", "Esperanza Spalding", "Chet Baker", "Herbie Hancock"],
+  "Classical": ["Ludovico Einaudi", "Yo-Yo Ma", "Lang Lang", "Max Richter", "Hans Zimmer", "Yiruma", "André Rieu", "Ólafur Arnalds", "Chopin", "Debussy"],
+  "Lo-Fi": ["Nujabes", "Jinsang", "Tomppabeats", "Idealism", "Kupla", "Philanthrope", "Mondo Loops", "Saib", "Swørn", "Aso"],
+};
+
 export async function GET(request: NextRequest) {
   const genre = request.nextUrl.searchParams.get("genre");
 
@@ -75,10 +88,13 @@ export async function GET(request: NextRequest) {
   try {
     const yt = await getInnerTube();
 
-    // Run 2 searches in parallel (artists are extracted from song results)
+    // Get curated artist names for this genre
+    const curatedArtists = GENRE_ARTISTS[genre] || [];
+
+    // Run playlist search + trending songs search in parallel
     const [playlistResults, trendingResults] = await Promise.all([
       yt.music.search(`${genre} music playlist`, { type: "playlist" }).catch(() => null),
-      yt.music.search(`top ${genre} hits`, { type: "song" }).catch(() => null),
+      yt.music.search(`${genre} hits 2025 2026`, { type: "song" }).catch(() => null),
     ]);
 
     // Parse playlists and split into official vs community
@@ -111,13 +127,13 @@ export async function GET(request: NextRequest) {
       const song = item as {
         id?: string;
         title?: string;
-        artists?: { name?: unknown; channel_id?: string; thumbnails?: { url?: string }[] }[];
+        artists?: { name?: unknown; channel_id?: string }[];
         album?: { name?: unknown };
         thumbnail?: { contents?: { url?: string }[] };
         duration?: { seconds?: number; text?: unknown };
       };
       const thumbnails = song.thumbnail?.contents || [];
-      const bestThumb = thumbnails[thumbnails.length - 1]?.url || "";
+      const bestThumb = getHQThumbnail(thumbnails[thumbnails.length - 1]?.url || "");
       const artistIds = (song.artists || [])
         .filter((a) => a.channel_id)
         .map((a) => ({ id: a.channel_id!, name: toText(a.name) }));
@@ -134,48 +150,31 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Extract unique artists from trending songs (real genre artists, not channels named after genres)
-    const seenArtistIds = new Set<string>();
-    const artistsFromSongs: { id: string; name: string }[] = [];
-    for (const song of trending) {
-      for (const ref of song.artistIds) {
-        if (ref.id && ref.name && !seenArtistIds.has(ref.id)) {
-          seenArtistIds.add(ref.id);
-          artistsFromSongs.push({ id: ref.id, name: ref.name });
-        }
-      }
-    }
-
-    // Fetch artist thumbnails in parallel (up to 10 artists)
-    const artistsToFetch = artistsFromSongs.slice(0, 10);
-    const artists = await Promise.all(
-      artistsToFetch.map(async (a) => {
+    // Fetch curated artist thumbnails in parallel (real verified artists only)
+    const artists = (await Promise.all(
+      curatedArtists.map(async (name) => {
         try {
-          const result = await yt.music.search(a.name, { type: "artist" });
+          const result = await yt.music.search(name, { type: "artist" });
           const items = (result?.contents?.[0] as { contents?: unknown[] } | undefined)?.contents || [];
-          // Find the exact match by channel ID or first result
-          for (const item of items) {
-            const artist = item as Record<string, unknown>;
-            const id = toText(artist.id);
-            if (id === a.id || items.indexOf(item) === 0) {
-              return {
-                id: a.id,
-                name: a.name,
-                thumbnail: extractThumb(artist.thumbnail),
-                subscribers: toText(artist.subscribers),
-              };
-            }
+          if (items.length > 0) {
+            const artist = items[0] as Record<string, unknown>;
+            return {
+              id: toText(artist.id),
+              name,
+              thumbnail: extractThumb(artist.thumbnail),
+              subscribers: toText(artist.subscribers),
+            };
           }
-          return { id: a.id, name: a.name, thumbnail: "", subscribers: "" };
+          return null;
         } catch {
-          return { id: a.id, name: a.name, thumbnail: "", subscribers: "" };
+          return null;
         }
       })
-    );
+    )).filter((a): a is NonNullable<typeof a> => a !== null && !!a.thumbnail);
 
     return NextResponse.json({
       playlists: { official, community },
-      artists: artists.filter((a) => a.thumbnail),
+      artists,
       trending,
     });
   } catch (error) {

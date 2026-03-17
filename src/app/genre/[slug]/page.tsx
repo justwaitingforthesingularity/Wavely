@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { Song } from "@/types/song";
 import SongCard from "@/components/SongCard";
+import { getHQThumbnail } from "@/utils/thumbnail";
 
 const GENRE_MAP: Record<string, { name: string; color: string; gradient: string }> = {
   "pop": {
@@ -152,7 +153,7 @@ export default function GenrePage({ params }: { params: Promise<{ slug: string }
               {playlist.thumbnail ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
-                  src={playlist.thumbnail}
+                  src={getHQThumbnail(playlist.thumbnail)}
                   alt={playlist.title}
                   referrerPolicy="no-referrer"
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -256,7 +257,7 @@ export default function GenrePage({ params }: { params: Promise<{ slug: string }
                     {artist.thumbnail ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
-                        src={artist.thumbnail}
+                        src={getHQThumbnail(artist.thumbnail)}
                         alt={artist.name}
                         referrerPolicy="no-referrer"
                         className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
