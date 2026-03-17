@@ -10,12 +10,11 @@ type Tab = "liked" | "history" | "artists" | "playlists";
 
 export default function Library() {
   const router = useRouter();
-  const { likedSongs, history, playlists, followedArtists, createPlaylist, deletePlaylist, toggleFollow } = useLibrary();
+  const { likedSongs, history, playlists, followedArtists, createPlaylist, toggleFollow } = useLibrary();
   const { playSong } = useAudioPlayer();
   const [activeTab, setActiveTab] = useState<Tab>("liked");
   const [showNewPlaylist, setShowNewPlaylist] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
-  const [expandedPlaylist, setExpandedPlaylist] = useState<string | null>(null);
 
   const handleCreatePlaylist = () => {
     const name = newPlaylistName.trim();
@@ -227,72 +226,62 @@ export default function Library() {
 
           {/* Playlist list */}
           <div className="space-y-2">
-            {playlists.map((playlist) => (
-              <div key={playlist.id}>
+            {playlists.map((playlist) => {
+              const coverSongs = playlist.songs.slice(0, 4);
+              return (
                 <button
-                  onClick={() => setExpandedPlaylist(expandedPlaylist === playlist.id ? null : playlist.id)}
-                  className="w-full flex items-center gap-4 rounded-xl bg-white/[0.03] border border-white/[0.04] p-4 hover:bg-white/[0.06] active:scale-[0.98] transition-all text-left"
+                  key={playlist.id}
+                  onClick={() => router.push(`/library/playlist/${playlist.id}`)}
+                  className="w-full flex items-center gap-4 rounded-xl bg-white/[0.03] border border-white/[0.04] p-3 hover:bg-white/[0.06] active:scale-[0.98] transition-all text-left"
                 >
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5 text-violet-400">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-[14px] font-semibold">{playlist.name}</h3>
-                    <p className="text-[12px] text-white/30 mt-0.5">
-                      {playlist.songs.length} {playlist.songs.length === 1 ? "song" : "songs"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {playlist.songs.length > 0 && (
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          playSong(playlist.songs[0], playlist.songs);
-                        }}
-                        className="p-2 rounded-full hover:bg-white/10 transition-colors"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-white/60">
-                          <path fillRule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clipRule="evenodd" />
+                  {/* Playlist thumbnail — mosaic or icon */}
+                  <div className="relative h-14 w-14 flex-shrink-0 rounded-lg overflow-hidden bg-white/[0.06]">
+                    {coverSongs.length >= 4 ? (
+                      <div className="grid grid-cols-2 grid-rows-2 w-full h-full">
+                        {coverSongs.map((s, i) => (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            key={i}
+                            src={s.thumbnail}
+                            alt=""
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ))}
+                      </div>
+                    ) : coverSongs.length > 0 ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={coverSongs[0].thumbnail}
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        className="absolute inset-0 w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-violet-500/20 to-indigo-500/20">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6 text-violet-400/60">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" />
                         </svg>
                       </div>
                     )}
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm(`Delete "${playlist.name}"?`)) deletePlaylist(playlist.id);
-                      }}
-                      className="p-2 rounded-full hover:bg-white/10 transition-colors"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-white/30">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                      </svg>
-                    </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className={`w-4 h-4 text-white/20 transition-transform ${expandedPlaylist === playlist.id ? "rotate-90" : ""}`}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                    </svg>
+                    <div className="absolute inset-0 rounded-lg ring-1 ring-white/[0.08]" />
                   </div>
-                </button>
 
-                {/* Expanded playlist songs */}
-                {expandedPlaylist === playlist.id && (
-                  <div className="ml-4 mt-1 mb-2 border-l border-white/[0.06] pl-4">
-                    {playlist.songs.length > 0 ? (
-                      <div className="space-y-0.5">
-                        {playlist.songs.map((song) => (
-                          <SongCard key={song.id} song={song} queue={playlist.songs} />
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-[12px] text-white/25 py-4">
-                        No songs yet. Add songs from the player menu.
-                      </p>
-                    )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[14px] font-semibold truncate">{playlist.name}</h3>
+                    <p className="text-[12px] text-white/30 mt-0.5">
+                      Playlist &middot; {playlist.songs.length} {playlist.songs.length === 1 ? "song" : "songs"}
+                    </p>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-white/20 flex-shrink-0">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
+              );
+            })}
           </div>
 
           {playlists.length === 0 && !showNewPlaylist && (
