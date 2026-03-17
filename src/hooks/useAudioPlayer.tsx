@@ -254,6 +254,8 @@ export function AudioPlayerProvider({ children, onSongPlay, onAudioElement }: { 
       const songQueue = queue || [song];
       const index = songQueue.findIndex((s) => s.id === song.id);
       loadAndPlay(song, songQueue, index >= 0 ? index : 0);
+      // Auto-open the full player so the YouTube IFrame can initialize
+      setState((prev) => ({ ...prev, isPlayerOpen: true }));
     },
     [loadAndPlay]
   );
