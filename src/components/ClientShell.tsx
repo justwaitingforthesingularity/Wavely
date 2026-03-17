@@ -1,0 +1,35 @@
+"use client";
+
+import { AudioPlayerProvider } from "@/hooks/useAudioPlayer";
+import { LibraryProvider, useLibrary } from "@/hooks/useLibrary";
+import { EqualizerProvider, useEqualizer } from "@/hooks/useEqualizer";
+import BottomNav from "./BottomNav";
+import MiniPlayer from "./MiniPlayer";
+import PlayerView from "./PlayerView";
+
+function AppContent({ children }: { children: React.ReactNode }) {
+  const { addToHistory } = useLibrary();
+  const { connectAudio } = useEqualizer();
+
+  return (
+    <AudioPlayerProvider onSongPlay={addToHistory} onAudioElement={connectAudio}>
+      <div className="dynamic-bg" />
+      <main className="relative z-10 min-h-screen pb-40">
+        {children}
+      </main>
+      <MiniPlayer />
+      <BottomNav />
+      <PlayerView />
+    </AudioPlayerProvider>
+  );
+}
+
+export default function ClientShell({ children }: { children: React.ReactNode }) {
+  return (
+    <LibraryProvider>
+      <EqualizerProvider>
+        <AppContent>{children}</AppContent>
+      </EqualizerProvider>
+    </LibraryProvider>
+  );
+}
