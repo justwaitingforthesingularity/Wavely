@@ -172,16 +172,6 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
                     rgb(10, 10, 12) 100%)`,
                 }}
               />
-              {/* Blur fade at the bottom of the image */}
-              <div
-                className="absolute inset-x-0 bottom-0 h-[120px]"
-                style={{
-                  backdropFilter: "blur(16px)",
-                  WebkitBackdropFilter: "blur(16px)",
-                  maskImage: "linear-gradient(to bottom, transparent, black)",
-                  WebkitMaskImage: "linear-gradient(to bottom, transparent, black)",
-                }}
-              />
             </>
           ) : (
             <div
@@ -205,6 +195,19 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
           </button>
         </div>
 
+        {/* Blur overlay — outside overflow-hidden so it spans the hero→content boundary with no visible edges */}
+        {artist.thumbnail && (
+          <div
+            className="absolute inset-x-0 bottom-[-55px] h-[160px] pointer-events-none z-20"
+            style={{
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              maskImage: "linear-gradient(to bottom, transparent 0%, black 35%, black 65%, transparent 100%)",
+              WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 35%, black 65%, transparent 100%)",
+            }}
+          />
+        )}
+
         {/* Artist info overlay at bottom of hero */}
         <div className="absolute bottom-0 left-0 right-0 px-5 pb-6">
           <h1 className="text-[32px] font-bold tracking-tight drop-shadow-lg">
@@ -220,15 +223,8 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
 
       {/* Rest of content */}
       <div className="relative z-10">
-        {/* Action buttons — glass strip that blurs into the hero above */}
-        <div
-          className="px-5 flex items-center gap-3 py-4 mb-2 -mt-2"
-          style={{
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            background: `linear-gradient(to bottom, rgba(10,10,12,0.3) 0%, rgba(10,10,12,0.85) 100%)`,
-          }}
-        >
+        {/* Action buttons */}
+        <div className="px-5 flex items-center gap-3 mt-4 mb-6">
           <button
             onClick={() => toggleFollow({
               id: artist.id,
