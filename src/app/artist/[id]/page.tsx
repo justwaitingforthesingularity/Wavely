@@ -209,7 +209,7 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
         )}
 
         {/* Artist info overlay at bottom of hero */}
-        <div className="absolute bottom-0 left-0 right-0 px-5 pb-6">
+        <div className="absolute bottom-0 left-0 right-0 px-5 pb-6 z-30">
           <h1 className="text-[32px] font-bold tracking-tight drop-shadow-lg">
             {artist.name}
           </h1>
