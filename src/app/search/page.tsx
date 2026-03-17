@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { searchSongs, ArtistSearchResult, AlbumSearchResult, PlaylistSearchResult, VideoSearchResult } from "@/services/pipedApi";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
@@ -64,6 +64,43 @@ export default function Search() {
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Genre browse data
+  const genres = [
+    { name: "Pop", slug: "pop", gradient: "from-pink-500 to-rose-600" },
+    { name: "Hip-Hop", slug: "hip-hop", gradient: "from-orange-500 to-amber-600" },
+    { name: "Rock", slug: "rock", gradient: "from-red-600 to-red-800" },
+    { name: "R&B", slug: "r-and-b", gradient: "from-purple-500 to-violet-700" },
+    { name: "Electronic", slug: "electronic", gradient: "from-blue-500 to-cyan-600" },
+    { name: "Jazz", slug: "jazz", gradient: "from-amber-600 to-yellow-800" },
+    { name: "Classical", slug: "classical", gradient: "from-teal-500 to-emerald-700" },
+    { name: "Lo-Fi", slug: "lo-fi", gradient: "from-indigo-500 to-purple-700" },
+  ];
+  const [genreThumbnails, setGenreThumbnails] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchGenreThumbnails() {
+      const thumbnails: Record<string, string> = {};
+      await Promise.all(
+        genres.map(async (genre) => {
+          try {
+            const data = await searchSongs(`${genre.name} artist`);
+            const firstArtist = (data.artists || [])[0];
+            if (firstArtist?.thumbnail) {
+              thumbnails[genre.slug] = firstArtist.thumbnail;
+            }
+          } catch {
+            // ignore failures for individual genres
+          }
+        })
+      );
+      if (!cancelled) setGenreThumbnails(thumbnails);
+    }
+    fetchGenreThumbnails();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Expanded state for each section
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
@@ -469,25 +506,25 @@ export default function Search() {
             Browse
           </h2>
           <div className="grid grid-cols-2 gap-3">
-            {[
-              { name: "Pop", gradient: "from-pink-500 to-rose-600" },
-              { name: "Hip-Hop", gradient: "from-orange-500 to-amber-600" },
-              { name: "Rock", gradient: "from-red-600 to-red-800" },
-              { name: "R&B", gradient: "from-purple-500 to-violet-700" },
-              { name: "Electronic", gradient: "from-blue-500 to-cyan-600" },
-              { name: "Jazz", gradient: "from-amber-600 to-yellow-800" },
-              { name: "Classical", gradient: "from-teal-500 to-emerald-700" },
-              { name: "Lo-Fi", gradient: "from-indigo-500 to-purple-700" },
-            ].map((genre) => (
+            {genres.map((genre) => (
               <button
                 key={genre.name}
-                onClick={() => {
-                  setQuery(genre.name + " music");
-                  performSearch(genre.name + " music");
-                }}
-                className={`bg-gradient-to-br ${genre.gradient} rounded-2xl p-4 h-[88px] flex items-end cursor-pointer hover:opacity-90 active:scale-[0.97] transition-all duration-200`}
+                onClick={() => router.push(`/genre/${genre.slug}`)}
+                className={`relative bg-gradient-to-br ${genre.gradient} rounded-2xl p-4 h-[88px] overflow-hidden cursor-pointer hover:opacity-90 active:scale-[0.97] transition-all duration-200`}
               >
-                <span className="font-semibold text-[15px] text-white drop-shadow-sm">{genre.name}</span>
+                <span className="absolute bottom-4 left-4 font-semibold text-[15px] text-white drop-shadow-sm z-10">
+                  {genre.name}
+                </span>
+                {genreThumbnails[genre.slug] && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={genreThumbnails[genre.slug]}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="absolute bottom-1 right-1 w-[60px] h-[60px] rounded-lg object-cover rotate-[15deg] shadow-lg shadow-black/30"
+                    loading="lazy"
+                  />
+                )}
               </button>
             ))}
           </div>
