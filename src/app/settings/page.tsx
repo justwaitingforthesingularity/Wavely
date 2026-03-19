@@ -673,7 +673,7 @@ function ProfileEditor({
                 className={`w-8 h-8 rounded-full transition-all ${
                   color === c ? "ring-2 ring-offset-2 ring-offset-[#1a1a1e] scale-110" : "hover:scale-105"
                 }`}
-                style={{ backgroundColor: c, ringColor: c }}
+                style={{ backgroundColor: c, ["--tw-ring-color" as string]: c } as React.CSSProperties}
               />
             ))}
           </div>
