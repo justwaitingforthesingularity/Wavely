@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { Song } from "@/types/song";
 import { Artist } from "@/types/artist";
 import { Playlist } from "@/types/playlist";
@@ -23,6 +23,7 @@ interface LibraryActions {
   removeFromPlaylist: (playlistId: string, songId: string) => void;
   toggleFollow: (artist: Artist) => void;
   isFollowing: (artistId: string) => boolean;
+  loadFromCloud: (data: { likedSongs: Song[]; playlists: Playlist[]; followedArtists: Artist[]; history: Song[] }) => void;
 }
 
 const LibraryContext = createContext<(LibraryState & LibraryActions) | null>(null);
@@ -52,6 +53,17 @@ function saveToStorage(key: string, value: unknown) {
   } catch {
     // Storage full or unavailable
   }
+}
+
+// Helper to sync actions to the server (fire-and-forget)
+function syncToServer(type: string, action: string, data: Record<string, unknown>) {
+  const token = typeof window !== "undefined" ? localStorage.getItem("wavely_auth_token") : null;
+  if (!token) return;
+  fetch("/api/sync", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ type, action, data }),
+  }).catch(() => {});
 }
 
 export function LibraryProvider({ children }: { children: React.ReactNode }) {
@@ -98,6 +110,8 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const toggleLike = useCallback((song: Song) => {
     setState((prev) => {
       const exists = prev.likedSongs.some((s) => s.id === song.id);
+      // Sync to server
+      syncToServer("liked_song", exists ? "remove" : "add", song as unknown as Record<string, unknown>);
       return {
         ...prev,
         likedSongs: exists
@@ -113,6 +127,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addToHistory = useCallback((song: Song) => {
+    syncToServer("history", "add", song as unknown as Record<string, unknown>);
     setState((prev) => {
       const filtered = prev.history.filter((s) => s.id !== song.id);
       return {
@@ -130,6 +145,32 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
+
+    // If logged in, create on server and use server ID
+    const token = typeof window !== "undefined" ? localStorage.getItem("wavely_auth_token") : null;
+    if (token) {
+      fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ type: "playlist", action: "create", data: { name } }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.playlist) {
+            // Replace local ID with server ID
+            setState((prev) => ({
+              ...prev,
+              playlists: prev.playlists.map((p) =>
+                p.id === playlist.id
+                  ? { ...p, id: data.playlist.id }
+                  : p
+              ),
+            }));
+          }
+        })
+        .catch(() => {});
+    }
+
     setState((prev) => ({
       ...prev,
       playlists: [...prev.playlists, playlist],
@@ -138,6 +179,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const deletePlaylist = useCallback((id: string) => {
+    syncToServer("playlist", "delete", { id });
     setState((prev) => ({
       ...prev,
       playlists: prev.playlists.filter((p) => p.id !== id),
@@ -145,6 +187,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const renamePlaylist = useCallback((id: string, name: string) => {
+    syncToServer("playlist", "rename", { id, name });
     setState((prev) => ({
       ...prev,
       playlists: prev.playlists.map((p) =>
@@ -154,6 +197,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addToPlaylist = useCallback((playlistId: string, song: Song) => {
+    syncToServer("playlist", "add_song", { playlistId, song: song as unknown as Record<string, unknown> });
     setState((prev) => ({
       ...prev,
       playlists: prev.playlists.map((p) =>
@@ -165,6 +209,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const removeFromPlaylist = useCallback((playlistId: string, songId: string) => {
+    syncToServer("playlist", "remove_song", { playlistId, songId });
     setState((prev) => ({
       ...prev,
       playlists: prev.playlists.map((p) =>
@@ -178,6 +223,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const toggleFollow = useCallback((artist: Artist) => {
     setState((prev) => {
       const exists = prev.followedArtists.some((a) => a.id === artist.id);
+      syncToServer("followed_artist", exists ? "remove" : "add", artist as unknown as Record<string, unknown>);
       return {
         ...prev,
         followedArtists: exists
@@ -191,6 +237,16 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     (artistId: string) => state.followedArtists.some((a) => a.id === artistId),
     [state.followedArtists]
   );
+
+  // Load data from cloud (replaces local data)
+  const loadFromCloud = useCallback((data: { likedSongs: Song[]; playlists: Playlist[]; followedArtists: Artist[]; history: Song[] }) => {
+    setState({
+      likedSongs: data.likedSongs || [],
+      playlists: data.playlists || [],
+      followedArtists: data.followedArtists || [],
+      history: data.history || [],
+    });
+  }, []);
 
   return (
     <LibraryContext.Provider
@@ -206,6 +262,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
         removeFromPlaylist,
         toggleFollow,
         isFollowing,
+        loadFromCloud,
       }}
     >
       {children}

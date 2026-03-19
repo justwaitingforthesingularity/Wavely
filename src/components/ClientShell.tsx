@@ -3,6 +3,7 @@
 import { AudioPlayerProvider } from "@/hooks/useAudioPlayer";
 import { LibraryProvider, useLibrary } from "@/hooks/useLibrary";
 import { EqualizerProvider, useEqualizer } from "@/hooks/useEqualizer";
+import { AuthProvider } from "@/hooks/useAuth";
 import BottomNav from "./BottomNav";
 import MiniPlayer from "./MiniPlayer";
 import PlayerView from "./PlayerView";
@@ -30,15 +31,17 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
 export default function ClientShell({ children }: { children: React.ReactNode }) {
   return (
-    <LibraryProvider>
-      <EqualizerProvider>
-        {/* Phone frame: on wide screens, constrains to 9:16 with ambient glow */}
-        <div className="phone-backdrop">
-          <div className="phone-frame">
-            <AppContent>{children}</AppContent>
+    <AuthProvider>
+      <LibraryProvider>
+        <EqualizerProvider>
+          {/* Phone frame: on wide screens, constrains to 9:16 with ambient glow */}
+          <div className="phone-backdrop">
+            <div className="phone-frame">
+              <AppContent>{children}</AppContent>
+            </div>
           </div>
-        </div>
-      </EqualizerProvider>
-    </LibraryProvider>
+        </EqualizerProvider>
+      </LibraryProvider>
+    </AuthProvider>
   );
 }
