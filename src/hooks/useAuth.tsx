@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import { supabase } from "@/lib/supabase";
 
 export interface AuthUser {
   id: string;
@@ -8,6 +9,8 @@ export interface AuthUser {
   displayName: string;
   avatar: string;
   accentColor: string;
+  email?: string;
+  photoUrl?: string;
 }
 
 interface AuthState {
@@ -19,6 +22,7 @@ interface AuthState {
 interface AuthActions {
   signup: (username: string, password: string, displayName?: string) => Promise<{ error?: string }>;
   login: (username: string, password: string) => Promise<{ error?: string }>;
+  signInWithGoogle: () => Promise<{ error?: string }>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<Pick<AuthUser, "displayName" | "avatar" | "accentColor">>) => Promise<{ error?: string }>;
   syncPush: (type: string, action: string, data: Record<string, unknown>) => Promise<void>;
@@ -45,9 +49,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
   const mountedRef = useRef(true);
 
-  // Restore session on mount
+  // Handle Supabase Auth state changes (for Google OAuth callback)
   useEffect(() => {
     mountedRef.current = true;
+
+    // Listen for auth state changes from Supabase (Google OAuth redirects)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mountedRef.current) return;
+
+      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
+        // User signed in via Google OAuth — upsert into our wavely_users table
+        const supaUser = session.user;
+        const email = supaUser.email || "";
+        const name = supaUser.user_metadata?.full_name || supaUser.user_metadata?.name || email.split("@")[0];
+        const photo = supaUser.user_metadata?.avatar_url || supaUser.user_metadata?.picture || "";
+
+        try {
+          const res = await fetch("/api/auth/google-upsert", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              supabaseId: supaUser.id,
+              email,
+              displayName: name,
+              photoUrl: photo,
+            }),
+          });
+          const data = await res.json();
+          if (data.user && data.token) {
+            localStorage.setItem(TOKEN_KEY, data.token);
+            setState({ user: data.user, loading: false, token: data.token });
+          }
+        } catch (err) {
+          console.error("Google upsert error:", err);
+          setState((s) => ({ ...s, loading: false }));
+        }
+      }
+    });
+
+    // Check for existing custom session token first
     const token = localStorage.getItem(TOKEN_KEY);
     if (token) {
       fetch("/api/auth/me", {
@@ -70,9 +110,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         });
     } else {
-      setState((s) => ({ ...s, loading: false }));
+      // Check if there's a Supabase session (returning from OAuth redirect)
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session && mountedRef.current) {
+          setState((s) => ({ ...s, loading: false }));
+        }
+        // If session exists, onAuthStateChange will handle it
+      });
     }
-    return () => { mountedRef.current = false; };
+
+    return () => {
+      mountedRef.current = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signup = useCallback(async (username: string, password: string, displayName?: string) => {
@@ -117,6 +167,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const signInWithGoogle = useCallback(async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: typeof window !== "undefined" ? `${window.location.origin}/settings` : undefined,
+        },
+      });
+      if (error) {
+        return { error: error.message };
+      }
+      return {};
+    } catch {
+      return { error: "Failed to start Google sign-in" };
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (token) {
@@ -125,6 +192,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { Authorization: `Bearer ${token}` },
       }).catch(() => {});
     }
+    // Also sign out of Supabase Auth (for Google sessions)
+    supabase.auth.signOut().catch(() => {});
     localStorage.removeItem(TOKEN_KEY);
     setState({ user: null, loading: false, token: null });
   }, []);
@@ -188,6 +257,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ...state,
         signup,
         login,
+        signInWithGoogle,
         logout,
         updateProfile,
         syncPush,
